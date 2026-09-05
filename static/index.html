@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Онлайн-запись</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>Онлайн-запись на услугу</h1>
+            <form id="booking-form">
+                <div class="form-group">
+                    <label>Выберите услугу:</label>
+                    <select id="service-select" required>
+                        <option value="">Загрузка услуг...</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Ваше имя:</label>
+                    <input type="text" id="client-name" required placeholder="Иван Иванов">
+                </div>
+
+                <div class="form-group">
+                    <label>Номер телефона:</label>
+                    <input type="tel" id="client-phone" required placeholder="+7 (700) 000-00-00">
+                </div>
+
+                <div class="form-group datetime-group">
+                    <div style="flex: 1;">
+                        <label>Дата:</label>
+                        <input type="date" id="booking-date" required>
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Время:</label>
+                        <input type="time" id="booking-time" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn">Записаться</button>
+            </form>
+            <div id="msg" style="margin-top: 1rem; font-weight: bold; text-align: center;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Минимальная дата — сегодня
+        document.getElementById('booking-date').min = new Date().toISOString().split('T')[0];
+
+        async function loadServices() {
+            const res = await fetch('/api/services');
+            const services = await res.json();
+            const select = document.getElementById('service-select');
+            select.innerHTML = services.map(s =>
+                `<option value="${s.id}">${s.name} — ${s.price} ₸ (${s.duration_min} мин)</option>`
+            ).join('');
+        }
+
+        document.getElementById('booking-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                service_id: parseInt(document.getElementById('service-select').value),
+                client_name: document.getElementById('client-name').value,
+                phone: document.getElementById('client-phone').value,
+                booking_date: document.getElementById('booking-date').value,
+                booking_time: document.getElementById('booking-time').value,
+            };
+
+            const res = await fetch('/api/bookings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const msg = document.getElementById('msg');
+            if (res.ok) {
+                msg.style.color = 'green';
+                msg.textContent = '🎉 Вы успешно записаны!';
+                document.getElementById('booking-form').reset();
+            } else {
+                msg.style.color = 'red';
+                msg.textContent = 'Ошибка при записи. Попробуйте еще раз.';
+            }
+        });
+
+        loadServices();
+    </script>
+</body>
+
+</html>

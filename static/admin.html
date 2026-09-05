@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Админ-панель записей</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Форма входа -->
+        <div id="login-box" class="card" style="max-width: 400px; margin: 4rem auto;">
+            <h2>Вход для мастера</h2>
+            <form id="login-form">
+                <div class="form-group">
+                    <label>Пароль (по умолч: admin123):</label>
+                    <input type="password" id="admin-pass" required>
+                </div>
+                <button type="submit" class="btn">Войти</button>
+            </form>
+        </div>
+
+        <!-- Таблица записей -->
+        <div id="dashboard" class="card" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2>Все записи клиентов</h2>
+                <button onclick="logout()" class="btn" style="width: auto; background: #64748b;">Выйти</button>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Клиент</th>
+                        <th>Телефон</th>
+                        <th>Услуга</th>
+                        <th>Дата и время</th>
+                        <th>Статус</th>
+                        <th>Действие</th>
+                    </tr>
+                </thead>
+                <tbody id="bookings-list"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (token) showDashboard();
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const res = await fetch('/api/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: document.getElementById('admin-pass').value })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                localStorage.setItem('token', data.token);
+                showDashboard();
+            } else {
+                alert('Неверный пароль!');
+            }
+        });
+
+        function logout() {
+            localStorage.removeItem('token');
+            location.reload();
+        }
+
+        async function showDashboard() {
+            document.getElementById('login-box').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'block';
+
+            const res = await fetch('/api/admin/bookings', {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+
+            if (res.ok) {
+                const list = await res.json();
+                const tbody = document.getElementById('bookings-list');
+                tbody.innerHTML = list.map(b => `
+                    <tr>
+                        <td><strong>${b.client_name}</strong></td>
+                        <td><a href="tel:${b.phone}">${b.phone}</a></td>
+                        <td>${b.service_name} (${b.price} ₸)</td>
+                        <td>${b.booking_date} в ${b.booking_time}</td>
+                        <td><span class="badge badge-${b.status}">${b.status}</span></td>
+                        <td>
+                            <select onchange="updateStatus(${b.id}, this.value)">
+                                <option value="Новая" ${b.status === 'Новая' ? 'selected' : ''}>Новая</option>
+                                <option value="Подтверждена" ${b.status === 'Подтверждена' ? 'selected' : ''}>Подтверждена</option>
+                                <option value="Завершено" ${b.status === 'Завершено' ? 'selected' : ''}>Завершено</option>
+                                <option value="Отменена" ${b.status === 'Отменена' ? 'selected' : ''}>Отменена</option>
+                            </select>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        async function updateStatus(id, newStatus) {
+            await fetch(`/api/admin/bookings/${id}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+            showDashboard();
+        }
+    </script>
+</body>
+
+</html>
